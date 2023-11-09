@@ -48,14 +48,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
@@ -89,14 +89,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
@@ -104,41 +104,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
 
-  /logout:
+  /signout:
     post:
-      description: Endpoint for user(Admin, Gatekeeper, Resident) logout
+      description: Endpoint for user(Gatekeeper, Resident, Admin) login
       operationId: userLogout
       tags:
         - auth
-      parameters:
-        - name: token
-          in: header
-          required: true
-          schema:
-            type: string
-
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoginSuccess'
-                
+                $ref: '#/components/schemas/LogoutSuccess'
+
+        '400':
+          description: BAD REQUEST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-    
+
   /users:
     get:
       description: List all users
@@ -161,21 +161,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-        
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
@@ -191,7 +191,7 @@ paths:
         schema:
           type: integer
           format: int32
-          
+
     get:
       description: Get user by ID
       operationId: getUserById
@@ -204,28 +204,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserById'
-                
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '404':
           description: NOT FOUND
           content:
@@ -256,36 +256,36 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserById'
-                
+                $ref: '#/components/schemas/UpdateSuccess'
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
@@ -301,6 +301,10 @@ paths:
       responses:
         '204':
           description: Successful Deletion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteSuccess'
 
         '400':
           description: BAD REQUEST
@@ -308,28 +312,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-                
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
@@ -359,21 +363,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-  
+
   /registration-requests/{requestId}:
     parameters:
       - name: requestId
@@ -381,8 +385,8 @@ paths:
         required: true
         schema:
           type: integer
-          format: int64
-          
+          format: int32
+
     get:
       description: Get registration request by ID
       operationId: getRegistrationReqById
@@ -395,28 +399,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserById'
-                
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '404':
           description: NOT FOUND
           content:
@@ -448,42 +452,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ManageRegistrationResponse'
-                
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-  
+
   /visit-requests:
     get:
       description: Endpoint to create visitor request
@@ -498,7 +502,7 @@ paths:
           schema:
             type: string
             format: date
-  
+
       responses:
         '200':
           description: List all visit requests
@@ -508,42 +512,42 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ScheduleResponse'
-                
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-        
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-                
+
     post:
       description: Endpoint to create visitor request
       operationId: createVisitRequest
@@ -561,29 +565,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScheduleResponse'
-                
+                $ref: '#/components/schemas/ScheduleResponseSuccess'
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
@@ -593,26 +597,19 @@ paths:
 
   /visit-requests/{requestId}:
     parameters:
-        - name: requestId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-  
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+
     get:
-      description: Get visitor request by ID
+      description: Get vistor request by ID
       operationId: getVisitorReqById
       tags:
         - gatekeeper
         - resident
-      parameters:
-        - name: date
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
       responses:
         '200':
           description: OK
@@ -620,28 +617,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScheduleResponse'
-                
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '404':
           description: NOT FOUND
           content:
@@ -654,7 +651,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-                
+
     put:
       description: Edit Visitor request
       operationId: modifyVisitRequest
@@ -672,7 +669,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScheduleResponse'
+                $ref: '#/components/schemas/UpdateSuccess'
 
         '400':
           description: BAD REQUEST
@@ -687,7 +684,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
@@ -708,7 +705,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-                
+
     delete:
       description: Remove Visitor request
       operationId: removeVisitRequest
@@ -717,6 +714,10 @@ paths:
       responses:
         '204':
           description: Successful deletion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteSuccess'
 
         '400':
           description: BAD REQUEST
@@ -731,7 +732,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
@@ -752,7 +753,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-                
+
     patch:
       description: Manage Visitor request by Gatekeeper
       operationId: manageVisitRequest
@@ -771,42 +772,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ManageRegistrationResponse'
-                
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-                
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-  
+
   /blacklist:
     get:
       description: List all blacklisted users
@@ -831,28 +832,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-        
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-  
+
     post:
       description: List all blacklisted users
       operationId: blacklistUser
@@ -860,7 +861,7 @@ paths:
         - admin
         - gatekeeper
         - resident
-      
+
       requestBody:
         required: true
         content:
@@ -882,29 +883,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-        
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-    
-  /visitor/visit-requests:
+
+  /passkey:
     get:
       description: Endpoint to create visitor request
       operationId: getPasskey
@@ -923,7 +924,7 @@ paths:
           schema:
             type: string
             format: email
-  
+
       responses:
         '200':
           description: List all visit requests of that visitor
@@ -933,51 +934,52 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ScheduleResponse'
-                
+
         '400':
           description: BAD REQUEST
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
-                
+
         '401':
           description: UNAUTHORIZED
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        
+
         '403':
           description: FORBIDDEN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForbiddenError'
-        
+
         '404':
           description: NOT FOUND
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
-                
+
         '500':
           description: INTERNAL SERVER ERROR
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
-    
+
+
 components:
   schemas:
-  
+
     UserRequestRegistration:
       type: object
       properties:
         userName:
           type: string
-        email: 
+        email:
           type: string
           format: email
         password:
@@ -994,13 +996,14 @@ components:
           format: int64
         userRole:
           type: string
-    
+      required: [userName, email, password, age, address, gender, mobileNumber, userRole]
+
     RequestRegistrationSuccess:
       type: object
       properties:
         message:
           type: string
-    
+
     Login:
       type: object
       properties:
@@ -1009,8 +1012,15 @@ components:
           format: email
         password:
           type: string
-    
+      required: [email, password]
+
     LoginSuccess:
+      type: object
+      properties:
+        token:
+          type: string
+
+    LogoutSuccess:
       type: object
       properties:
         message:
@@ -1071,7 +1081,7 @@ components:
           type: string
         approvedBy:
           type: string
-    
+
     UpdateUser:
       type: object
       properties:
@@ -1090,25 +1100,41 @@ components:
         mobileNumber:
           type: integer
           format: int64
-    
+        userRole:
+          type: string
+      minProperties: 1
+
     ManageRegistrationRequest:
       type: object
       properties:
         canApprove:
           type: boolean
-    
+      required: [canApprove]
+
     ManageRegistrationResponse:
       type: object
       properties:
         message:
           type: string
-    
+
+    DeleteSuccess:
+      type: object
+      properties:
+        message:
+          type: string
+
+    UpdateSuccess:
+      type: object
+      properties:
+        message:
+          type: string
+
     VisitRequest:
       type: object
       properties:
         visitorName:
           type: string
-        email: 
+        email:
           type: string
           format: email
         age:
@@ -1124,7 +1150,8 @@ components:
         requestedDate:
           type: string
           format: Date
-          
+      required: [visitorName, email, age, address, gender, mobileNumber, requestedDate]
+
     BlackList:
       type: object
       properties:
@@ -1133,43 +1160,41 @@ components:
         email:
           type: string
           format: email
-        age:
+        userId:
           type: integer
           format: int32
-        address:
-          type: string
-        gender:
-          type: string
-        mobileNumber:
-          type: integer
-          format: int64
         userRole:
           type: string
         blacklistedBy:
           type: string
-      
+
     BlacklistRequest:
       type: object
       properties:
-        userId: 
+        userId:
           type: integer
-          format: int64
+          format: int32
         userRole:
           type: string
-    
+          pattern: 'visitor|user'
+      required: [userId, userRole]
+
     BlacklistSuccess:
       type: object
       properties:
         message:
           type: string
           default: Added to blacklist
-    
+
     ScheduleResponse:
       type: object
       properties:
+        requestId:
+          type: integer
+          format: int32
         visitorId:
           type: integer
-          format: int64
+          format: int32
         visitorName:
           type: string
         requestedDate:
@@ -1187,6 +1212,15 @@ components:
           type: string
         address:
           type: string
+        requestedBy:
+          type: string
+          format: email
+
+    ScheduleResponseSuccess:
+      type: object
+      properties:
+        message:
+          type: string
 
     #Errors
     BadRequestError:
@@ -1195,32 +1229,31 @@ components:
         message:
           type : string
           default: Sorry you've made a bad request
-          
+
     UnauthorizedError:
       type: object
       properties:
         message:
           type : string
           default : You are not authorized to access this resource
-    
+
     ForbiddenError:
       type: object
       properties:
         message:
           type : string
           default: You are forbidden to access this resource
-    
+
     NotFoundError:
       type: object
       properties:
         message:
           type : string
           default: Sorry! Resource not found
-          
+
     InternalServerError:
       type: object
       properties:
         message:
           type : string
           default: Something went wrong. Try again!
-          
