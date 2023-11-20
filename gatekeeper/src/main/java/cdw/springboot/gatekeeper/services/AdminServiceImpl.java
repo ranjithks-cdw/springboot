@@ -2,129 +2,60 @@ package cdw.springboot.gatekeeper.services;
 
 import cdw.springboot.gatekeeper.configs.JwtServiceImpl;
 import cdw.springboot.gatekeeper.constants.AppConstants;
-import cdw.springboot.gatekeeper.constants.ErrorResponseConstants;
-import cdw.springboot.gatekeeper.constants.SuccessResponseConstants;
-import cdw.springboot.gatekeeper.entities.Blacklist;
+import cdw.springboot.gatekeeper.entities.Roles;
 import cdw.springboot.gatekeeper.entities.UserInfo;
 import cdw.springboot.gatekeeper.entities.Users;
 import cdw.springboot.gatekeeper.exceptions.GatekeeperException;
 import cdw.springboot.gatekeeper.model.*;
-import cdw.springboot.gatekeeper.repositories.BlacklistRepository;
 import cdw.springboot.gatekeeper.repositories.RolesRepository;
 import cdw.springboot.gatekeeper.repositories.UserInfoRepository;
 import cdw.springboot.gatekeeper.repositories.UserRepository;
-import jakarta.validation.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static cdw.springboot.gatekeeper.utils.ConditionalCheckers.*;
 
 @Service
 @Transactional
-public class AdminServiceImpl implements AdminService{
+public class AdminServiceImpl implements AdminService {
     @Autowired
-    private UserRepository userRepository;
+    UserRepository userRepository;
     @Autowired
-    private UserInfoRepository userInfoRepository;
-    @Autowired
-    private BlacklistRepository blacklistRepository;
-    @Autowired
-    private RolesRepository rolesRepository;
-    @Autowired
-    private JwtServiceImpl jwtService;
+    UserInfoRepository userInfoRepository;
 
-    /**
-     * @param blacklistRequest
-     * @return
-     */
-    @Override
-    public BlacklistSuccess blacklistUser(BlacklistRequest blacklistRequest) {
-        BlacklistSuccess response = null;
-        try {
-            response = new BlacklistSuccess();
-            String approverEmail = jwtService.getUserFromJwt();
-            Users approvedBy = userRepository.findByEmail(approverEmail).orElse(null);
-            if(approvedBy == null) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
-            }
-            int addedRows = 0;
-            if(blacklistRequest.getUserRole().equals(AppConstants.ROLE_VISITOR)) {
-                addedRows = blacklistRepository.blacklistVisitor(blacklistRequest.getUserId(), approvedBy.getUserId());
-            } else if(approvedBy.getRolesList().get(0).getRoleName().equals(AppConstants.ROLE_ADMIN)) {
-                addedRows = blacklistRepository.blacklistUser(blacklistRequest.getUserId(), approvedBy.getUserId());
-            }
-            if(addedRows != 1) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
-            response.setMessage(SuccessResponseConstants.SUCCESS_BLACKLIST);
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(ErrorResponseConstants.BAD_REQUEST);
-        }
-        return response;
-    }
+    @Autowired
+    RolesRepository rolesRepository;
+
+    @Autowired
+    JwtServiceImpl jwtService;
 
     /**
      * @param userId
      * @return
      */
     @Override
-    public DeleteSuccess deleteUserById(Integer userId) {
-        DeleteSuccess response = null;
-        try {
-            response = new DeleteSuccess();
-            int deletedRows = userRepository.deleteActiveUserById(userId);
-            if(deletedRows != 1) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
-            response.setMessage(SuccessResponseConstants.SUCCESS_DELETE_RESPONSE);
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(response.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-        return response;
-    }
+    public GeneralSuccess deleteUserById(Integer userId) {
+        Users user = userRepository.findById(userId).orElseThrow(() -> new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND));
 
-    /**
-     * @return
-     */
-    @Override
-    public List<BlackList> getBlackList() {
-        List<BlackList> blackList = null;
-        try {
-            List<Blacklist> blackListedUsers = blacklistRepository.findAll();
-            blackList = blackListedUsers.stream()
-                    .map(user -> {
-                        BlackList b = new BlackList();
-                        if(user.getUser() != null) {
-                            b.setUserName(user.getUser().getUsername());
-                            b.setEmail(user.getUser().getEmail());
-                            b.setUserId(user.getUser().getUserId());
-                            b.setUserRole(user.getUser().getRolesList().get(0).getRoleName());
-                        }
-                        if(user.getVisitor() != null) {
-                            b.setUserName(user.getVisitor().getVisitorName());
-                            b.setEmail(user.getVisitor().getEmail());
-                            b.setUserId(user.getVisitor().getVisitorId());
-                            b.setUserRole(AppConstants.ROLE_VISITOR);
-                        }
-                        b.setBlacklistedBy(user.getBlacklistedBy().getUsername());
-                        return b;
-                    })
-                    .collect(Collectors.toList());
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        if(isSystemAdmin(userId) || !isActiveApprovedUser(user)) {
+            throw new GatekeeperException(AppConstants.ERROR_BAD_REQUEST, HttpStatus.BAD_REQUEST);
         }
-        return blackList;
+
+        user.setIsActive(AppConstants.NO);
+        userRepository.save(user);
+
+        GeneralSuccess response = new GeneralSuccess();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(AppConstants.SUCCESS_DELETED);
+
+        return response;
     }
 
     /**
@@ -132,33 +63,34 @@ public class AdminServiceImpl implements AdminService{
      * @return
      */
     @Override
-    public UserById getRegistrationReqById(Integer requestId) {
-        UserById response = null;
-        try {
-            Optional<UserInfo> userInfo = userInfoRepository.findByUserUserId(requestId);
-            if(!userInfo.isPresent() || (userInfo.get().getUser().getIsApproved() != null && userInfo.get().getUser().getIsApproved().equals(AppConstants.YES))) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
-            response = new UserById();
-            response.setUserId(userInfo.get().getUser().getUserId());
-            response.setUserName(userInfo.get().getUser().getUsername());
-            response.setEmail(userInfo.get().getUser().getEmail());
-            response.setAge(userInfo.get().getAge());
-            response.setAddress(userInfo.get().getAddress());
-            response.setUserRole(userInfo.get().getUser().getRolesList().get(0).getRoleName());
-            response.setGender(userInfo.get().getGender());
-            response.setMobileNumber(userInfo.get().getMobileNumber());
-            response.setIsApproved(userInfo.get().getUser().getIsApproved());
-            String approvedBy = null;
-            if(userInfo.get().getApprovedBy() != null) {
-                approvedBy = userInfo.get().getApprovedBy().getUsername();
-            }
-            response.setApprovedBy(approvedBy);
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
+    public GetUserById200Response getRegistrationReqById(Integer requestId) {
+        UserInfo userInfo = userInfoRepository.findByUserUserId(requestId).orElse(null);
+
+        if(!isUnApprovedUserRequest(userInfo)) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND);
         }
+
+        UsersList data = new UsersList();
+        data.setUserId(requestId);
+        data.setUserName(userInfo.getUser().getUsername());
+        data.setEmail(userInfo.getUser().getEmail());
+        data.setAge(userInfo.getAge());
+        data.setAddress(userInfo.getAddress());
+        data.setGender(userInfo.getGender());
+        data.setMobileNumber(userInfo.getMobileNumber());
+        data.setUserRole(userInfo.getUser().getRolesList().get(0).getRoleName());
+        data.setIsApproved(userInfo.getUser().getIsApproved());
+
+        Users approvedBy = userInfo.getApprovedBy();
+        if(approvedBy != null) {
+            data.approvedBy(userInfo.getApprovedBy().getEmail());
+        }
+
+        GetUserById200Response response = new GetUserById200Response();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(data);
+
         return response;
     }
 
@@ -166,35 +98,39 @@ public class AdminServiceImpl implements AdminService{
      * @return
      */
     @Override
-    public List<UsersList> getRegistrationRequests() {
-        List<UsersList> registrationRequests = null;
-        try {
-            List<UserInfo> userInfo = userInfoRepository.findAll();
-            registrationRequests = userInfo.stream()
-                    .filter(user -> user.getUser().getIsApproved() == null || user.getUser().getIsApproved().equals(AppConstants.NO))
-                    .map(user -> {
-                        UsersList usersListResponse = new UsersList();
-                        usersListResponse.setUserId(user.getUser().getUserId());
-                        usersListResponse.setUserName(user.getUser().getUsername());
-                        usersListResponse.setEmail(user.getUser().getEmail());
-                        usersListResponse.setAge(user.getAge());
-                        usersListResponse.setAddress(user.getAddress());
-                        usersListResponse.setUserRole(user.getUser().getRolesList().get(0).getRoleName());
-                        usersListResponse.setMobileNumber(user.getMobileNumber());
-                        usersListResponse.setGender(user.getGender());
-                        usersListResponse.setIsApproved(user.getUser().getIsApproved());
-                        String approvedBy = null;
-                        if(user.getApprovedBy() != null) {
-                            approvedBy = user.getApprovedBy().getUsername();
-                        }
-                        usersListResponse.setApprovedBy(approvedBy);
-                        return usersListResponse;
-                    })
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
-        }
-        return registrationRequests;
+    public GetUsers200Response getRegistrationRequests() {
+        List<UserInfo> allUsers = userInfoRepository.findAll();
+
+        List<UsersList> data = allUsers.stream()
+                .filter(user -> isUnApprovedUserRequest(user))
+                .map(user -> {
+                    UsersList userDetail = new UsersList();
+                    userDetail.setUserId(user.getUser().getUserId());
+                    userDetail.setUserName(user.getUser().getUsername());
+                    userDetail.setEmail(user.getUser().getEmail());
+                    userDetail.setAge(user.getAge());
+                    userDetail.setAddress(user.getAddress());
+                    userDetail.setGender(user.getGender());
+                    userDetail.setMobileNumber(user.getMobileNumber());
+                    userDetail.setUserRole(user.getUser().getRolesList().get(0).getRoleName());
+                    userDetail.setIsApproved(user.getUser().getIsApproved());
+
+                    Users approvedBy = user.getApprovedBy();
+                    if(approvedBy != null) {
+                        userDetail.approvedBy(user.getApprovedBy().getEmail());
+                    }
+
+                    return userDetail;
+                })
+                .collect(Collectors.toList());
+
+
+        GetUsers200Response response = new GetUsers200Response();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(data);
+
+        return response;
     }
 
     /**
@@ -202,33 +138,34 @@ public class AdminServiceImpl implements AdminService{
      * @return
      */
     @Override
-    public UserById getUserById(Integer userId) {
-        UserById response = null;
-        try {
-            UserInfo userInfo = userInfoRepository.findValidUserById(userId).orElse(null);
-            if(userInfo == null) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
-            response = new UserById();
-            response.setUserId(userInfo.getUser().getUserId());
-            response.setUserName(userInfo.getUser().getUsername());
-            response.setEmail(userInfo.getUser().getEmail());
-            response.setAge(userInfo.getAge());
-            response.setAddress(userInfo.getAddress());
-            response.setUserRole(userInfo.getUser().getRolesList().get(0).getRoleName());
-            response.setGender(userInfo.getGender());
-            response.setMobileNumber(userInfo.getMobileNumber());
-            response.setIsApproved(userInfo.getUser().getIsApproved());
-            String approvedBy = null;
-            if(response.getApprovedBy() != null) {
-                approvedBy = userInfo.getApprovedBy().getUsername();
-            }
-            response.setApprovedBy(approvedBy);
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
+    public GetUserById200Response getUserById(Integer userId) {
+        UserInfo userInfo = userInfoRepository.findByUserUserId(userId).orElse(null);
+
+        if(!isActiveApprovedUser(userInfo) || isSystemAdmin(userId)) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND);
         }
+
+        UsersList data = new UsersList();
+        data.setUserId(userId);
+        data.setUserName(userInfo.getUser().getUsername());
+        data.setEmail(userInfo.getUser().getEmail());
+        data.setAge(userInfo.getAge());
+        data.setAddress(userInfo.getAddress());
+        data.setGender(userInfo.getGender());
+        data.setMobileNumber(userInfo.getMobileNumber());
+        data.setUserRole(userInfo.getUser().getRolesList().get(0).getRoleName());
+        data.setIsApproved(userInfo.getUser().getIsApproved());
+
+        Users approvedBy = userInfo.getApprovedBy();
+        if(approvedBy != null) {
+            data.approvedBy(userInfo.getApprovedBy().getEmail());
+        }
+
+        GetUserById200Response response = new GetUserById200Response();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(data);
+
         return response;
     }
 
@@ -236,121 +173,114 @@ public class AdminServiceImpl implements AdminService{
      * @return
      */
     @Override
-    public List<UsersList> getUsers() {
-        List<UsersList> response = null;
-        try {
-            List<UserInfo> userInfo = userInfoRepository.findAllValidUsers();
-            response = userInfo.stream()
-                    .map(user -> {
-                        UsersList details = new UsersList();
-                        details.setUserId(user.getUser().getUserId());
-                        details.setApprovedBy(user.getApprovedBy() == null ? null: user.getApprovedBy().getEmail());
-                        details.setUserRole(user.getUser().getRolesList().get(0).getRoleName());
-                        details.setGender(user.getGender());
-                        details.setAge(user.getAge());
-                        details.setUserName(user.getUser().getUsername());
-                        details.setMobileNumber(user.getMobileNumber());
-                        details.setEmail(user.getUser().getEmail());
-                        details.setAddress(user.getAddress());
-                        details.setIsApproved(user.getUser().getIsApproved());
-                        return details;
-                    })
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
-        }
+    public GetUsers200Response getUsers() {
+        List<UserInfo> allUsers = userInfoRepository.findAll();
+
+        List<UsersList> data = allUsers.stream()
+                .filter(user -> isActiveApprovedUser(user) && !isSystemAdmin(user.getUser().getUserId()))
+                .map(user -> {
+                    UsersList userDetail = new UsersList();
+                    userDetail.setUserId(user.getUser().getUserId());
+                    userDetail.setUserName(user.getUser().getUsername());
+                    userDetail.setEmail(user.getUser().getEmail());
+                    userDetail.setAge(user.getAge());
+                    userDetail.setAddress(user.getAddress());
+                    userDetail.setGender(user.getGender());
+                    userDetail.setMobileNumber(user.getMobileNumber());
+                    userDetail.setUserRole(user.getUser().getRolesList().get(0).getRoleName());
+                    userDetail.setIsApproved(user.getUser().getIsApproved());
+
+                    Users approvedBy = user.getApprovedBy();
+                    if(approvedBy != null) {
+                        userDetail.approvedBy(user.getApprovedBy().getEmail());
+                    }
+
+                    return userDetail;
+                })
+                .collect(Collectors.toList());
+
+        GetUsers200Response response = new GetUsers200Response();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(data);
+
         return response;
     }
 
     /**
      * @param requestId
-     * @param manageRegistrationRequest
+     * @param manageRequest
      * @return
      */
     @Override
-    @Transactional
-    public ManageRegistrationResponse manageRegistrationRequest(Integer requestId, ManageRegistrationRequest manageRegistrationRequest) {
-        ManageRegistrationResponse response = null;
-        try {
-            response = new ManageRegistrationResponse();
-            String approverEmail = jwtService.getUserFromJwt();
-            Users approvedBy = userRepository.findByEmail(approverEmail).orElse(null);
-            if(approvedBy == null) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
-            }
+    public GeneralSuccess manageRegistrationRequest(Integer requestId, ManageRegistrationRequest manageRequest) {
+        String approverEmail = jwtService.getUserFromJwt();
+        Users approvedBy = userRepository.findByEmail(approverEmail).orElse(null);
 
-            int updatedRows = 0;
-            if(manageRegistrationRequest.getCanApprove()) {
-                updatedRows += userInfoRepository.saveApproval(requestId, approvedBy.getUserId());
-                updatedRows += userRepository.saveApproval(requestId, AppConstants.YES);
-                response.setMessage(SuccessResponseConstants.SUCCESS_REG_REQ_APPROVED);
-            } else {
-                updatedRows += userRepository.saveApproval(requestId, AppConstants.NO);
-                updatedRows++;
-                response.setMessage(SuccessResponseConstants.SUCCESS_REG_REQ_REJECTED);
-            }
-
-            if(updatedRows != 2) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
-
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
+        if(approvedBy == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
         }
+
+        UserInfo userInfo = userInfoRepository.findByUserUserId(requestId).orElse(null);
+
+        if(!isUnApprovedUserRequest(userInfo)) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND);
+        }
+
+        GeneralSuccess response = new GeneralSuccess();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+
+        userInfo.setApprovedBy(approvedBy);
+        if(manageRequest.getIsApproved()) {
+            userInfo.getUser().setIsApproved(AppConstants.YES);
+            userInfo.getUser().setIsActive(AppConstants.YES);
+            response.setData(AppConstants.SUCCESS_APPROVED);
+        } else {
+            userInfo.getUser().setIsApproved(AppConstants.NO);
+            userInfo.getUser().setIsActive(AppConstants.NO);
+            response.setData(AppConstants.SUCCESS_REJECTED);
+        }
+
+        userInfoRepository.save(userInfo);
+
         return response;
     }
 
     /**
      * @param userId
-     * @param updateUser
+     * @param updateUserRequest
      * @return
      */
-    @Transactional
     @Override
-    public UpdateSuccess updateUserById(Integer userId, UpdateUser updateUser) {
-        UpdateSuccess response = null;
-        try {
-            UserInfo user = userInfoRepository.findValidUserById(userId).orElse(null);
-            response = new UpdateSuccess();
-            if(user == null) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
-            if(updateUser.getUserName() != null) {
-                user.getUser().setUserName(updateUser.getUserName());
-            }
-            if(updateUser.getEmail() != null) {
-                user.getUser().setEmail(updateUser.getEmail());
-            }
-            if(updateUser.getAge() != null) {
-                user.setAge(updateUser.getAge());
-            }
-            if(updateUser.getAddress() != null) {
-                user.setAddress(updateUser.getAddress());
-            }
-            if(updateUser.getGender() != null) {
-                user.setGender(updateUser.getGender());
-            }
-            if(updateUser.getMobileNumber() != null) {
-                user.setMobileNumber(updateUser.getMobileNumber());
-            }
-            if(updateUser.getUserRole() != null) {
-                user.getUser().getRolesList().remove(0);
-                user.getUser().getRolesList().add(rolesRepository.findByRoleName(updateUser.getUserRole()));
-            }
-            userInfoRepository.save(user);
-            response.setMessage(SuccessResponseConstants.SUCCESS_UPDATE);
-        } catch (TransactionSystemException ex) {
-            if (ex.getRootCause() instanceof ConstraintViolationException) {
-                throw new ConstraintViolationException(((ConstraintViolationException) ex.getRootCause()).getConstraintViolations());
-            }
-            throw new GatekeeperException(ex.getMessage());
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
+    public GeneralSuccess updateUserById(Integer userId, UpdateUserRequest updateUserRequest) {
+        UserInfo userInfo = userInfoRepository.findByUserUserId(userId).orElse(null);
+
+        if(!isActiveApprovedUser(userInfo) && !isSystemAdmin(userId)) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND);
         }
+
+        userInfo.getUser().setUserName(updateUserRequest.getUserName());
+        userInfo.getUser().setEmail(updateUserRequest.getEmail());
+        userInfo.setAge(updateUserRequest.getAge());
+        userInfo.setAddress(updateUserRequest.getAddress());
+        userInfo.setGender(updateUserRequest.getGender());
+        userInfo.setMobileNumber(updateUserRequest.getMobileNumber());
+
+        Roles role = rolesRepository.findByRoleName(updateUserRequest.getUserRole());
+        if(role == null) {
+            throw new GatekeeperException(AppConstants.ERROR_BAD_REQUEST, HttpStatus.BAD_REQUEST);
+        }
+        List<Roles> rolesList = new ArrayList<>();
+        rolesList.add(role);
+
+        userInfo.getUser().setRolesList(rolesList);
+
+        GeneralSuccess response = new GeneralSuccess();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(AppConstants.SUCCESS_UPDATED);
+
         return response;
     }
 }

@@ -1,7 +1,6 @@
 package cdw.springboot.gatekeeper.entities;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
@@ -45,8 +44,8 @@ public class Visitors {
 
     @Column(name = "mobile_number")
     @NotNull(message = "Mobile number is required")
-    @Digits(integer = 10, fraction = 0, message = "Mobile number must be a 10-digit number")
-    private Long mobileNumber;
+    @Pattern(regexp = "^[6789]\\d{9}$", message = "Enter valid mobile number")
+    private String mobileNumber;
 
     @Column(name = "email", unique = true)
     @NotNull(message = "Email is required")

@@ -18,16 +18,10 @@ public class Blacklist {
 
     @OneToOne
     @MapsId
-    @JoinColumn(name = "user_id", referencedColumnName = "user_id")
-    private Users user;
-
-    @OneToOne
-    @MapsId
     @JoinColumn(name = "visitor_id", referencedColumnName = "visitor_id")
     private Visitors visitor;
 
     @ManyToOne
-    @MapsId
     @JoinColumn(name = "blacklisted_by", referencedColumnName = "user_id")
     private Users blacklistedBy;
 }

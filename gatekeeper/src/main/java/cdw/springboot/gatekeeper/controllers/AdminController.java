@@ -7,89 +7,81 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
+/**
+ * Controller to manage admin endpoints
+ */
 @RestController
 public class AdminController implements AdminApi {
     @Autowired
     AdminServiceImpl adminService;
-    /**
-     * @param blacklistRequest (required)
-     * @return
-     */
-    @Override
-    public ResponseEntity<BlacklistSuccess> blacklistUser(BlacklistRequest blacklistRequest) {
-        return ResponseEntity.status(201).body(adminService.blacklistUser(blacklistRequest));
-    }
 
     /**
+     * Delete user by user id
      * @param userId (required)
      * @return
      */
     @Override
-    public ResponseEntity<DeleteSuccess> deleteUserById(Integer userId) {
-        return ResponseEntity.status(204).body(adminService.deleteUserById(userId));
+    public ResponseEntity<GeneralSuccess> deleteUserById(Integer userId) {
+        return ResponseEntity.status(200).body(adminService.deleteUserById(userId));
     }
 
     /**
-     * @return
-     */
-    @Override
-    public ResponseEntity<List<BlackList>> getBlacklist() {
-        return ResponseEntity.status(200).body(adminService.getBlackList());
-    }
-
-    /**
+     * Get unapproved user registration request by request id
      * @param requestId (required)
      * @return
      */
     @Override
-    public ResponseEntity<UserById> getRegistrationReqById(Integer requestId) {
+    public ResponseEntity<GetUserById200Response> getRegistrationReqById(Integer requestId) {
         return ResponseEntity.status(200).body(adminService.getRegistrationReqById(requestId));
     }
 
     /**
+     * Get all unapproved user registration requests
      * @return
      */
     @Override
-    public ResponseEntity<List<UsersList>> getRegistrationRequests() {
+    public ResponseEntity<GetUsers200Response> getRegistrationRequests() {
         return ResponseEntity.status(200).body(adminService.getRegistrationRequests());
     }
 
     /**
+     * Get user details by id
      * @param userId (required)
      * @return
      */
     @Override
-    public ResponseEntity<UserById> getUserById(Integer userId) {
+    public ResponseEntity<GetUserById200Response> getUserById(Integer userId) {
         return ResponseEntity.status(200).body(adminService.getUserById(userId));
     }
 
     /**
+     * Get all valid users
      * @return
      */
     @Override
-    public ResponseEntity<List<UsersList>> getUsers() {
+    public ResponseEntity<GetUsers200Response> getUsers() {
         return ResponseEntity.status(200).body(adminService.getUsers());
     }
 
     /**
+     * To manage registration request (approve or reject) for user registration
      * @param requestId                 (required)
-     * @param manageRegistrationRequest (required)
+     * @param manageRequest (required)
      * @return
      */
     @Override
-    public ResponseEntity<ManageRegistrationResponse> manageRegistrationRequest(Integer requestId, ManageRegistrationRequest manageRegistrationRequest) {
-        return ResponseEntity.status(200).body(adminService.manageRegistrationRequest(requestId, manageRegistrationRequest));
+    public ResponseEntity<GeneralSuccess> manageRegistrationRequest(Integer requestId, ManageRegistrationRequest manageRequest) {
+        return ResponseEntity.status(200).body(adminService.manageRegistrationRequest(requestId, manageRequest));
     }
 
     /**
-     * @param userId     (required)
-     * @param updateUser (required)
+     * To update user details by user id
+     * @param userId            (required)
+     * @param updateUserRequest (required)
      * @return
      */
     @Override
-    public ResponseEntity<UpdateSuccess> updateUserById(Integer userId, UpdateUser updateUser) {
-        return ResponseEntity.status(200).body(adminService.updateUserById(userId, updateUser));
+    public ResponseEntity<GeneralSuccess> updateUserById(Integer userId, UpdateUserRequest updateUserRequest) {
+        return ResponseEntity.status(200).body(adminService.updateUserById(userId, updateUserRequest));
     }
 }

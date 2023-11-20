@@ -1,44 +1,50 @@
 package cdw.springboot.gatekeeper.controllers;
 
 import cdw.springboot.gatekeeper.api.AuthApi;
-import cdw.springboot.gatekeeper.model.*;
+import cdw.springboot.gatekeeper.model.GeneralSuccess;
+import cdw.springboot.gatekeeper.model.SigninRequest;
+import cdw.springboot.gatekeeper.model.UserRegistrationRequest;
 import cdw.springboot.gatekeeper.services.AuthServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Controller for authorizations
+ */
 @RestController
 public class AuthController implements AuthApi {
     @Autowired
-    AuthServiceImpl authServiceImpl;
+    AuthServiceImpl authService;
     @Autowired
-    HttpServletRequest httpServletRequest;
+    HttpServletRequest request;
     /**
-     * @param userRequestRegistration (required)
+     * To request registration of user to the app
+     * @param userRegistrationRequest (required)
      * @return
      */
     @Override
-    public ResponseEntity<RequestRegistrationSuccess> registerUser(@RequestBody UserRequestRegistration userRequestRegistration) {
-        return ResponseEntity.status(201).body(authServiceImpl.registerUser(userRequestRegistration));
+    public ResponseEntity<GeneralSuccess> registerUser(UserRegistrationRequest userRegistrationRequest) {
+        return ResponseEntity.status(201).body(authService.registerUser(userRegistrationRequest));
     }
 
     /**
-     * @param login (required)
+     * To logging into the app
+     * @param signinRequest (required)
      * @return
      */
     @Override
-    public ResponseEntity<LoginSuccess> userLogin(@RequestBody Login login) {
-        return ResponseEntity.status(200).body(authServiceImpl.userLogin(login));
+    public ResponseEntity<GeneralSuccess> userLogin(SigninRequest signinRequest) {
+        return ResponseEntity.status(200).body(authService.userLogin(signinRequest));
     }
 
-
     /**
+     * Logout from the app
      * @return
      */
     @Override
-    public ResponseEntity<LogoutSuccess> userLogout() {
-        return ResponseEntity.status(200).body(authServiceImpl.userLogout(httpServletRequest));
+    public ResponseEntity<GeneralSuccess> userLogout() {
+        return ResponseEntity.status(200).body(authService.userLogout(request));
     }
 }

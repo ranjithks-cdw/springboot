@@ -24,7 +24,7 @@ public class VisitRequests {
     private int requestId;
 
     @ManyToOne(cascade = {CascadeType.MERGE, CascadeType.MERGE})
-   @JoinColumn(name = "requested_by", referencedColumnName = "user_id")
+    @JoinColumn(name = "requested_by", referencedColumnName = "user_id")
     private Users requestedBy;
 
     @ManyToOne

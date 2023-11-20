@@ -7,6 +7,5 @@ import java.util.Collection;
 
 public interface JwtService {
     public String generateToken(Users user, Collection<SimpleGrantedAuthority> authorities);
-    public long extractRemainingTime(String token);
     public String getUserFromJwt();
 }

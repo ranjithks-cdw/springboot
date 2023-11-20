@@ -1,8 +1,10 @@
 package cdw.springboot.gatekeeper.services;
 
-import cdw.springboot.gatekeeper.constants.ErrorResponseConstants;
+import cdw.springboot.gatekeeper.constants.AppConstants;
+import cdw.springboot.gatekeeper.entities.Users;
 import cdw.springboot.gatekeeper.entities.VisitRequests;
 import cdw.springboot.gatekeeper.exceptions.GatekeeperException;
+import cdw.springboot.gatekeeper.model.GetVisitRequestResident200Response;
 import cdw.springboot.gatekeeper.model.ScheduleResponse;
 import cdw.springboot.gatekeeper.repositories.BlacklistRepository;
 import cdw.springboot.gatekeeper.repositories.VisitRequestsRepository;
@@ -17,44 +19,52 @@ import java.util.stream.Collectors;
 @Service
 public class VisitorServiceImpl implements VisitorService {
     @Autowired
-    VisitRequestsRepository visitRequestsRepository;
-
-    @Autowired
     BlacklistRepository blacklistRepository;
 
+    @Autowired
+    VisitRequestsRepository visitRequestsRepository;
     /**
      * @param date
      * @param email
      * @return
      */
     @Override
-    public List<ScheduleResponse> getPasskey(LocalDate date, String email) {
-        List<ScheduleResponse> response = null;
-        try {
-            if(blacklistRepository.existsByEmail(email) > 0) {
-                throw new GatekeeperException(ErrorResponseConstants.BLACKLISTED_USER, HttpStatus.FORBIDDEN);
-            }
-            List<VisitRequests> visitRequests = visitRequestsRepository.findAllByDate(date).orElse(null);
-            response = visitRequests.stream()
-                    .filter(req -> req.getVisitor().getEmail().equals(email))
-                    .map(req -> {
-                        ScheduleResponse message = new ScheduleResponse();
-                        message.setRequestId(req.getRequestId());
-                        message.setVisitorId(req.getVisitor().getVisitorId());
-                        message.setVisitorName(req.getVisitor().getVisitorName());
-                        message.setRequestedDate(req.getDate());
-                        message.setMobileNumber(req.getVisitor().getMobileNumber());
-                        message.setGender(req.getVisitor().getGender());
-                        message.setEmail(req.getVisitor().getEmail());
-                        message.setPasskey(req.getPasskey());
-                        message.setAddress(req.getVisitor().getAddress());
-                        message.setRequestedBy(req.getRequestedBy().getEmail());
-                        return message;
-                    })
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
+    public GetVisitRequestResident200Response getVisitDetails(LocalDate date, String email) {
+        if(blacklistRepository.existsByVisitorEmail(email)) {
+            throw new GatekeeperException(AppConstants.ERROR_BLACKLISTED_USER, HttpStatus.UNAUTHORIZED);
         }
+        List<VisitRequests> allVisitRequests = visitRequestsRepository.findAllByDate(date);
+
+        List<ScheduleResponse> data = allVisitRequests.stream()
+                .filter(schedule -> schedule.getVisitor().getEmail().equals(email))
+                .map(schedule -> {
+                    ScheduleResponse response = new ScheduleResponse();
+                    response.setRequestId(schedule.getRequestId());
+                    response.setVisitorId(schedule.getVisitor().getVisitorId());
+                    response.setVisitorName(schedule.getVisitor().getVisitorName());
+                    response.setRequestedDate(schedule.getDate());
+                    response.setMobileNumber(schedule.getVisitor().getMobileNumber());
+                    response.setGender(schedule.getVisitor().getGender());
+                    response.setEmail(schedule.getVisitor().getEmail());
+                    response.setPasskey(schedule.getPasskey());
+                    response.setAddress(schedule.getVisitor().getAddress());
+                    response.setIsApproved(schedule.getIsApproved());
+                    response.setRequestedBy(schedule.getRequestedBy().getEmail());
+
+                    Users approvedBy = schedule.getApprovedBy();
+                    if(approvedBy != null) {
+                        response.setApprovedBy(approvedBy.getEmail());
+                    }
+
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        GetVisitRequestResident200Response response = new GetVisitRequestResident200Response();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(data);
+
         return response;
     }
 }

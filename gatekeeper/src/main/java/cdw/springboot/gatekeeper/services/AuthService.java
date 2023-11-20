@@ -1,10 +1,12 @@
 package cdw.springboot.gatekeeper.services;
 
-import cdw.springboot.gatekeeper.model.*;
+import cdw.springboot.gatekeeper.model.GeneralSuccess;
+import cdw.springboot.gatekeeper.model.SigninRequest;
+import cdw.springboot.gatekeeper.model.UserRegistrationRequest;
 import jakarta.servlet.http.HttpServletRequest;
 
 public interface AuthService {
-    public RequestRegistrationSuccess registerUser(UserRequestRegistration userRegistrationRequest);
-    public LoginSuccess userLogin(Login login);
-    public LogoutSuccess userLogout(HttpServletRequest request);
+    public GeneralSuccess registerUser(UserRegistrationRequest userRegistrationRequest);
+    public GeneralSuccess userLogin(SigninRequest login);
+    public GeneralSuccess userLogout(HttpServletRequest request);
 }

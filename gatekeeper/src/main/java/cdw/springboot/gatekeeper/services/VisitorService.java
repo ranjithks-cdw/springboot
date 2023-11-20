@@ -1,10 +1,9 @@
 package cdw.springboot.gatekeeper.services;
 
-import cdw.springboot.gatekeeper.model.ScheduleResponse;
+import cdw.springboot.gatekeeper.model.GetVisitRequestResident200Response;
 
 import java.time.LocalDate;
-import java.util.List;
 
 public interface VisitorService {
-    public List<ScheduleResponse> getPasskey(LocalDate date, String email);
+    public GetVisitRequestResident200Response getVisitDetails(LocalDate date, String email);
 }

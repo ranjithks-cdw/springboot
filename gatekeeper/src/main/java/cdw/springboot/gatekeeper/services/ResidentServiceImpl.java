@@ -1,35 +1,31 @@
 package cdw.springboot.gatekeeper.services;
 
 import cdw.springboot.gatekeeper.configs.JwtServiceImpl;
-import cdw.springboot.gatekeeper.constants.ErrorResponseConstants;
-import cdw.springboot.gatekeeper.constants.SuccessResponseConstants;
+import cdw.springboot.gatekeeper.constants.AppConstants;
 import cdw.springboot.gatekeeper.entities.Users;
 import cdw.springboot.gatekeeper.entities.VisitRequests;
 import cdw.springboot.gatekeeper.entities.Visitors;
 import cdw.springboot.gatekeeper.exceptions.GatekeeperException;
-import cdw.springboot.gatekeeper.model.DeleteSuccess;
-import cdw.springboot.gatekeeper.model.ScheduleResponseSuccess;
-import cdw.springboot.gatekeeper.model.UpdateSuccess;
-import cdw.springboot.gatekeeper.model.VisitRequest;
-import cdw.springboot.gatekeeper.repositories.*;
-import jakarta.validation.ConstraintViolationException;
+import cdw.springboot.gatekeeper.model.*;
+import cdw.springboot.gatekeeper.repositories.BlacklistRepository;
+import cdw.springboot.gatekeeper.repositories.UserRepository;
+import cdw.springboot.gatekeeper.repositories.VisitRequestsRepository;
+import cdw.springboot.gatekeeper.repositories.VisitorsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Random;
+import java.util.stream.Collectors;
+
+import static cdw.springboot.gatekeeper.utils.AppUtils.generateRandomPasskey;
+import static cdw.springboot.gatekeeper.utils.DateUtilities.stringToLocaleDate;
 
 @Service
 @Transactional
-public class ResidentServiceImpl implements ResidentService{
-    @Autowired
-    UserRepository userRepository;
-
+public class ResidentServiceImpl implements ResidentService {
     @Autowired
     VisitorsRepository visitorsRepository;
     @Autowired
@@ -38,67 +34,190 @@ public class ResidentServiceImpl implements ResidentService{
     BlacklistRepository blacklistRepository;
     @Autowired
     JwtServiceImpl jwtService;
+    @Autowired
+    UserRepository userRepository;
+    /**
+     * @param visitRequest
+     * @return
+     */
+    @Override
+    public GeneralSuccess createVisitRequest(VisitRequest visitRequest) {
+        Visitors visitor = visitorsRepository.findByEmail(visitRequest.getEmail()).orElse(null);
+
+        if(blacklistRepository.existsByVisitor(visitor)) {
+            throw new GatekeeperException(AppConstants.ERROR_BLACKLISTED_USER, HttpStatus.BAD_REQUEST);
+        }
+
+        String requesterEmail = jwtService.getUserFromJwt();
+        Users requestedBy = userRepository.findByEmail(requesterEmail).orElse(null);
+
+        if(requestedBy == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
+        }
+
+        LocalDate date = stringToLocaleDate(visitRequest.getRequestedDate());
+        String passkey = generateRandomPasskey();
+
+        if(visitor == null) {
+            visitor = new Visitors();
+            visitor.setVisitorName(visitRequest.getVisitorName());
+            visitor.setEmail(visitRequest.getEmail());
+            visitor.setAge(visitRequest.getAge());
+            visitor.setAddress(visitRequest.getAddress());
+            visitor.setGender(visitRequest.getGender());
+            visitor.setMobileNumber(visitRequest.getMobileNumber());
+        }
+        VisitRequests visitRequestsObj = new VisitRequests();
+        visitRequestsObj.setRequestedBy(requestedBy);
+        visitRequestsObj.setDate(date);
+        visitRequestsObj.setPasskey(passkey);
+        visitRequestsObj.setVisitor(visitor);
+        visitRequestsRepository.save(visitRequestsObj);
+
+        GeneralSuccess response = new GeneralSuccess();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.CREATED.value());
+        response.setData(AppConstants.SUCCESS_CREATED);
+
+        return response;
+    }
+
+    /**
+     * @param date
+     * @return
+     */
+    @Override
+    public GetVisitRequestResident200Response getVisitRequestResident(LocalDate date) {
+        String requesterEmail = jwtService.getUserFromJwt();
+        Users requestedBy = userRepository.findByEmail(requesterEmail).orElse(null);
+
+        if(requestedBy == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
+        }
+
+        List<VisitRequests> allVisitRequests = visitRequestsRepository.findAllByDate(date);
+
+        List<ScheduleResponse> data = allVisitRequests.stream()
+                .filter(schedule -> requestedBy.getUserId() == schedule.getRequestedBy().getUserId())
+                .map(schedule -> {
+                    ScheduleResponse response = new ScheduleResponse();
+                    response.setRequestId(schedule.getRequestId());
+                    response.setVisitorId(schedule.getVisitor().getVisitorId());
+                    response.setVisitorName(schedule.getVisitor().getVisitorName());
+                    response.setRequestedDate(schedule.getDate());
+                    response.setMobileNumber(schedule.getVisitor().getMobileNumber());
+                    response.setGender(schedule.getVisitor().getGender());
+                    response.setEmail(schedule.getVisitor().getEmail());
+                    response.setPasskey(schedule.getPasskey());
+                    response.setAddress(schedule.getVisitor().getAddress());
+                    response.setIsApproved(schedule.getIsApproved());
+                    response.setRequestedBy(schedule.getRequestedBy().getEmail());
+
+                    Users approvedBy = schedule.getApprovedBy();
+                    if(approvedBy != null) {
+                        response.setApprovedBy(approvedBy.getEmail());
+                    }
+
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        GetVisitRequestResident200Response response = new GetVisitRequestResident200Response();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(data);
+
+        return response;
+    }
+
+    /**
+     * @param requestId
+     * @return
+     */
+    @Override
+    public GetVisitorReqByIdResident200Response getVisitorReqByIdResident(Integer requestId) {
+        String requesterEmail = jwtService.getUserFromJwt();
+        Users requestedBy = userRepository.findByEmail(requesterEmail).orElse(null);
+
+        if(requestedBy == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
+        }
+
+        VisitRequests visitRequest = visitRequestsRepository.findById(requestId).orElse(null);
+
+        if(visitRequest == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND);
+        }
+
+        if(visitRequest.getRequestedBy().getUserId() != requestedBy.getUserId()) {
+            throw new GatekeeperException(AppConstants.ERROR_BAD_REQUEST, HttpStatus.BAD_REQUEST);
+        }
+
+        ScheduleResponse data = new ScheduleResponse();
+        data.setRequestId(visitRequest.getRequestId());
+        data.setVisitorId(visitRequest.getVisitor().getVisitorId());
+        data.setVisitorName(visitRequest.getVisitor().getVisitorName());
+        data.setRequestedDate(visitRequest.getDate());
+        data.setMobileNumber(visitRequest.getVisitor().getMobileNumber());
+        data.setGender(visitRequest.getVisitor().getGender());
+        data.setEmail(visitRequest.getVisitor().getEmail());
+        data.setPasskey(visitRequest.getPasskey());
+        data.setAddress(visitRequest.getVisitor().getAddress());
+        data.setIsApproved(visitRequest.getIsApproved());
+        data.setRequestedBy(visitRequest.getRequestedBy().getEmail());
+
+        Users approvedBy = visitRequest.getApprovedBy();
+        if(approvedBy != null) {
+            data.setApprovedBy(approvedBy.getEmail());
+        }
+
+        GetVisitorReqByIdResident200Response response = new GetVisitorReqByIdResident200Response();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(data);
+
+        return response;
+    }
+
     /**
      * @param requestId
      * @param updateVisitRequest
      * @return
      */
     @Override
-    public UpdateSuccess modifyVisitRequest(Integer requestId, VisitRequest updateVisitRequest) {
-        UpdateSuccess response = null;
-        try {
-            VisitRequests visitRequestObj = visitRequestsRepository.findValidRequestById(requestId).orElse(null);
-            Visitors visitor = visitRequestObj.getVisitor();
-            boolean isVisitorUpdated = false;
-            if(visitRequestObj == null) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
-            if(updateVisitRequest.getVisitorName() != null) {
-                visitor.setVisitorName(updateVisitRequest.getVisitorName());
-                isVisitorUpdated = true;
-            }
-            if(updateVisitRequest.getEmail() != null) {
-                visitor.setEmail(updateVisitRequest.getEmail());
-                isVisitorUpdated = true;
-            }
-            if(updateVisitRequest.getAge() != null) {
-                visitor.setAge(updateVisitRequest.getAge());
-                isVisitorUpdated = true;
-            }
-            if(updateVisitRequest.getAddress() != null) {
-                visitor.setAddress(updateVisitRequest.getAddress());
-                isVisitorUpdated = true;
-            }
-            if(updateVisitRequest.getGender() != null) {
-                visitor.setGender(updateVisitRequest.getGender());
-                isVisitorUpdated = true;
-            }
-            if(updateVisitRequest.getMobileNumber() != null) {
-                visitor.setMobileNumber(updateVisitRequest.getMobileNumber());
-                isVisitorUpdated = true;
-            }
-            if(updateVisitRequest.getRequestedDate() != null) {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                LocalDate date = LocalDate.parse(updateVisitRequest.getRequestedDate(), formatter);
-                visitRequestObj.setDate(date);
-            }
-            if(isVisitorUpdated) {
-                visitRequestObj.setVisitor(visitor);
-                visitorsRepository.save(visitor);
-            }
-            visitRequestsRepository.save(visitRequestObj);
-            response = new UpdateSuccess();
-            response.setMessage(SuccessResponseConstants.SUCCESS_UPDATE);
-        } catch (TransactionSystemException ex) {
-            if (ex.getRootCause() instanceof ConstraintViolationException) {
-                throw new ConstraintViolationException(((ConstraintViolationException) ex.getRootCause()).getConstraintViolations());
-            }
-            throw new GatekeeperException(ex.getMessage());
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
+    public GeneralSuccess modifyVisitRequest(Integer requestId, VisitRequest updateVisitRequest) {
+        String requesterEmail = jwtService.getUserFromJwt();
+        Users requestedBy = userRepository.findByEmail(requesterEmail).orElse(null);
+
+        if(requestedBy == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
         }
+
+        VisitRequests visitRequest = visitRequestsRepository.findById(requestId).orElse(null);
+
+        if(visitRequest == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND);
+        }
+
+        if(visitRequest.getRequestedBy().getUserId() != requestedBy.getUserId() || visitRequest.getIsApproved() != null || visitRequest.getDate().isBefore(LocalDate.now())) {
+            throw new GatekeeperException(AppConstants.ERROR_BAD_REQUEST, HttpStatus.BAD_REQUEST);
+        }
+        LocalDate date = stringToLocaleDate(updateVisitRequest.getRequestedDate());
+
+
+        visitRequest.getVisitor().setVisitorName(updateVisitRequest.getVisitorName());
+        visitRequest.getVisitor().setAge(updateVisitRequest.getAge());
+        visitRequest.getVisitor().setEmail(updateVisitRequest.getEmail());
+        visitRequest.getVisitor().setAddress(updateVisitRequest.getAddress());
+        visitRequest.getVisitor().setGender(updateVisitRequest.getGender());
+        visitRequest.getVisitor().setMobileNumber(updateVisitRequest.getMobileNumber());
+        visitRequest.setDate(date);
+
+        GeneralSuccess response = new GeneralSuccess();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(AppConstants.SUCCESS_UPDATED);
+
         return response;
     }
 
@@ -107,71 +226,31 @@ public class ResidentServiceImpl implements ResidentService{
      * @return
      */
     @Override
-    public DeleteSuccess removeVisitRequest(Integer requestId) {
-        DeleteSuccess response = null;
-        try {
-            int deletedRows = visitRequestsRepository.deleteValidRequestById(requestId);
-            if(deletedRows != 1) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_FOUND, HttpStatus.NOT_FOUND);
-            }
+    public GeneralSuccess removeVisitRequest(Integer requestId) {
+        String requesterEmail = jwtService.getUserFromJwt();
+        Users requestedBy = userRepository.findByEmail(requesterEmail).orElse(null);
 
-            response = new DeleteSuccess();
-            response.setMessage(SuccessResponseConstants.SUCCESS_DELETE_RESPONSE);
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage());
+        if(requestedBy == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
         }
-        return response;
-    }
 
-    /**
-     * @param visitRequest
-     * @return
-     */
-    @Override
-    public ScheduleResponseSuccess createVisitRequest(VisitRequest visitRequest) {
-        ScheduleResponseSuccess response = null;
-        try {
-            if(blacklistRepository.existsByEmail(visitRequest.getEmail()) > 0) {
-                throw new GatekeeperException(ErrorResponseConstants.BLACKLISTED_USER, HttpStatus.UNAUTHORIZED);
-            }
-            String requesterEmail = jwtService.getUserFromJwt();
-            Users requestedBy = userRepository.findByEmail(requesterEmail).orElse(null);
-            if(requestedBy == null) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
-            }
-            Visitors visitor = visitorsRepository.findByEmail(visitRequest.getEmail()).orElse(null);
-            if(visitor == null) {
-                visitor = new Visitors();
-                visitor.setVisitorName(visitRequest.getVisitorName());
-                visitor.setEmail(visitRequest.getEmail());
-                visitor.setAge(visitRequest.getAge());
-                visitor.setAddress(visitRequest.getAddress());
-                visitor.setGender(visitRequest.getGender());
-                visitor.setMobileNumber(visitRequest.getMobileNumber());
-                visitorsRepository.save(visitor);
-            }
-            VisitRequests visitRequestObj = new VisitRequests();
-            visitRequestObj.setRequestedBy(requestedBy);
+        VisitRequests visitRequest = visitRequestsRepository.findById(requestId).orElse(null);
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            LocalDate date = LocalDate.parse(visitRequest.getRequestedDate(), formatter);
-
-            visitRequestObj.setDate(date);
-            Random rnd = new Random();
-            int number = rnd.nextInt(999999);
-            String passkey = String.format("%06d", number);
-            visitRequestObj.setPasskey(passkey);
-            visitRequestObj.setVisitor(visitor);
-            visitRequestsRepository.save(visitRequestObj);
-            response = new ScheduleResponseSuccess();
-            response.setMessage(SuccessResponseConstants.SUCCESS_VISIT_REQUEST);
-        } catch (GatekeeperException e) {
-            throw new GatekeeperException(e.getMessage(), e.getHttpStatus());
-        } catch (Exception e) {
-            throw new GatekeeperException(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        if(visitRequest == null) {
+            throw new GatekeeperException(AppConstants.ERROR_NOT_FOUND, HttpStatus.NOT_FOUND);
         }
+
+        if(visitRequest.getRequestedBy().getUserId() != requestedBy.getUserId() || visitRequest.getIsApproved() != null || visitRequest.getDate().isBefore(LocalDate.now())) {
+            throw new GatekeeperException(AppConstants.ERROR_BAD_REQUEST, HttpStatus.BAD_REQUEST);
+        }
+
+        visitRequestsRepository.deleteById(requestId);
+
+        GeneralSuccess response = new GeneralSuccess();
+        response.setSuccess(true);
+        response.setStatusCode(HttpStatus.OK.value());
+        response.setData(AppConstants.SUCCESS_DELETED);
+
         return response;
     }
 }

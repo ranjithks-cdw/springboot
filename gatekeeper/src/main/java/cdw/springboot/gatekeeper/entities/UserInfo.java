@@ -1,7 +1,6 @@
 package cdw.springboot.gatekeeper.entities;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
@@ -25,8 +24,7 @@ public class UserInfo {
     @JoinColumn(name = "user_id", referencedColumnName = "user_id")
     private Users user;
 
-    @ManyToOne
-    @MapsId
+    @ManyToOne(cascade = {CascadeType.MERGE, CascadeType.PERSIST})
     @JoinColumn(name = "approved_by", referencedColumnName = "user_id")
     private Users approvedBy;
 
@@ -46,11 +44,11 @@ public class UserInfo {
 
     @Column(name = "mobile_number")
     @NotNull(message = "Mobile number is required")
-    @Digits(integer = 10, fraction = 0, message = "Mobile number must be a 10-digit number")
-    private Long mobileNumber;
+    @Pattern(regexp = "^[6789]\\d{9}$", message = "Enter valid mobile number")
+    private String mobileNumber;
 
 
-    public UserInfo(int age, String address, String gender, Long mobileNumber, Users user) {
+    public UserInfo(int age, String address, String gender, String mobileNumber, Users user) {
         this.age = age;
         this.address = address;
         this.gender = gender;

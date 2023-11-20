@@ -4,7 +4,6 @@ import cdw.springboot.gatekeeper.constants.AppConstants;
 import cdw.springboot.gatekeeper.entities.Users;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -38,20 +37,8 @@ public class JwtServiceImpl implements JwtService{
     }
 
     /**
-     * Extract the remaining time in minutes for JWT token to expire
-     * @param token - users token
-     * @return - remaining time left
-     */
-    public long extractRemainingTime(String token) {
-        DecodedJWT decodedJWT = JWT.decode(token);
-        Date expirationTime = decodedJWT.getExpiresAt();
-        Date currentTime = new Date();
-        long remainingMillis = expirationTime.getTime() - currentTime.getTime();
-        return remainingMillis ;
-    }
-
-    /**
-     * @return
+     * Returns email from token
+     * @return Email
      */
     @Override
     public String getUserFromJwt() {

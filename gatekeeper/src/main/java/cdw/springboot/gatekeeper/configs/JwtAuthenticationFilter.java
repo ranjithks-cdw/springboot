@@ -1,6 +1,6 @@
 package cdw.springboot.gatekeeper.configs;
 
-import cdw.springboot.gatekeeper.constants.ErrorResponseConstants;
+import cdw.springboot.gatekeeper.constants.AppConstants;
 import cdw.springboot.gatekeeper.exceptions.GatekeeperException;
 import cdw.springboot.gatekeeper.repositories.TokenRepository;
 import cdw.springboot.gatekeeper.repositories.UserInfoRepository;
@@ -29,6 +29,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
+/**
+ * Custom filter for JWT Authentication
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -42,6 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Value("${secret.key}")
     private String secretKey;
     /**
+     * Checks for valid JWT Token from the incoming HTTP request
      * @param request
      * @param response
      * @param filterChain
@@ -58,13 +62,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = authHeader.substring("Bearer ".length());
             if(!tokenRepository.existsByToken(token)) {
-                throw new GatekeeperException(ErrorResponseConstants.NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
+                throw new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED);
             }
             Algorithm algorithm = Algorithm.HMAC256((secretKey.getBytes()));
             JWTVerifier verifier = JWT.require(algorithm).build();
             DecodedJWT decodedJWT = verifier.verify(token);
             String email = decodedJWT.getSubject();
-            userInfoRepository.findValidUsersByEmail(email).orElseThrow(() -> new GatekeeperException(ErrorResponseConstants.NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED));
+            userInfoRepository.findValidUsersByEmail(email).orElseThrow(() -> new GatekeeperException(AppConstants.ERROR_NOT_AUTHORIZED, HttpStatus.UNAUTHORIZED));
             String[] roles = decodedJWT.getClaim("roles").asArray(String.class);
             Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
             Arrays.stream(roles).forEach(role -> {
